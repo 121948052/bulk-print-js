@@ -6,8 +6,8 @@ export default defineConfig({
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.js'),
-      name: 'BulkPrint',
-      fileName: (format) => `bulk-print.${format}.js`
+      name: 'BulkPrintJS',
+      fileName: (format) => `bulk-print-js.${format}.js`
     },
     rollupOptions: {
       external: [],
