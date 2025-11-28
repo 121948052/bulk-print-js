@@ -1,0 +1,29 @@
+# .npmignore
+# 测试文件
+test/
+__tests__/
+*.test.js
+*.spec.js
+
+# 开发配置
+webpack.config.js
+.babelrc
+.eslintrc
+.prettierrc
+
+# 开发工具
+.git/
+.github/
+.gitignore
+
+# 文档源码
+docs-src/
+examples/
+
+# 日志文件
+*.log
+npm-debug.log*
+
+# 环境文件
+.env
+.env.local

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基础使用示例 - bulk-print-js</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            line-height: 1.6;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        .print-page { 
+            border: 1px solid #ddd; 
+            margin: 10px 0; 
+            padding: 20px; 
+            page-break-after: always;
+            background: white;
+        }
+        button { 
+            padding: 12px 24px; 
+            background: #007bff; 
+            color: white; 
+            border: none; 
+            cursor: pointer; 
+            margin: 10px 5px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button:hover { background: #0056b3; }
+        .progress { 
+            margin: 20px 0; 
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+        .demo-section {
+            background: #f5f5f5;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        @media print {
+            body { margin: 0; }
+            .demo-section, button, .progress { display: none; }
+            .print-page { border: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📦 bulk-print-js 基础使用示例</h1>
+        
+        <div class="demo-section">
+            <h3>快速测试</h3>
+            <p>点击下面的按钮测试不同的打印模式：</p>
+            <button onclick="startBasicPrint()">🚀 基础打印 (自动模式)</button>
+            <button onclick="startManualPrint()">👆 手动确认打印</button>
+            <button onclick="startLargePrint()">📊 大批量打印 (50页)</button>
+        </div>
+        
+        <div class="progress" id="progress">
+            <strong>状态：</strong>等待开始打印...
+        </div>
+        
+        <div id="print-container" style="display: none;">
+            <!-- 生成10个测试页面 -->
+            <div class="print-page">
+                <h2>📄 第 1 页</h2>
+                <p>这是第一页的测试内容，用于演示批量打印功能。</p>
+                <p><strong>生成时间：</strong><span id="time1"></span></p>
+                <div style="background: #e9ecef; padding: 10px; margin: 10px 0;">
+                    <p>这是一个示例内容块，展示了打印页面的基本布局。</p>
+                </div>
+            </div>
+            <div class="print-page">
+                <h2>📄 第 2 页</h2>
+                <p>这是第二页的测试内容，包含不同的数据展示。</p>
+                <p><strong>生成时间：</strong><span id="time2"></span></p>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr><td style="border: 1px solid #ddd; padding: 8px;">项目 A</td><td style="border: 1px solid #ddd; padding: 8px;">100</td></tr>
+                    <tr><td style="border: 1px solid #ddd; padding: 8px;">项目 B</td><td style="border: 1px solid #ddd; padding: 8px;">200</td></tr>
+                </table>
+            </div>
+            <div class="print-page">
+                <h2>📄 第 3 页</h2>
+                <p>这是第三页，展示列表内容。</p>
+                <p><strong>生成时间：</strong><span id="time3"></span></p>
+                <ul>
+                    <li>列表项目 1 - 测试数据</li>
+                    <li>列表项目 2 - 更多内容</li>
+                    <li>列表项目 3 - 示例文本</li>
+                </ul>
+            </div>
+            <div class="print-page">
+                <h2>📄 第 4 页</h2>
+                <p>这是第四页，包含图表占位符。</p>
+                <p><strong>生成时间：</strong><span id="time4"></span></p>
+                <div style="height: 200px; background: linear-gradient(45deg, #f0f0f0 25%, transparent 25%, transparent 75%, #f0f0f0 75%, #f0f0f0), linear-gradient(45deg, #f0f0f0 25%, transparent 25%, transparent 75%, #f0f0f0 75%, #f0f0f0); background-size: 20px 20px; background-position: 0 0, 10px 10px; display: flex; align-items: center; justify-content: center; color: #666;">
+                    📊 图表区域 (示例)
+                </div>
+            </div>
+            <div class="print-page">
+                <h2>📄 第 5 页</h2>
+                <p>这是第五页，包含引用文本。</p>
+                <p><strong>生成时间：</strong><span id="time5"></span></p>
+                <blockquote style="border-left: 4px solid #007bff; padding-left: 20px; margin: 20px 0; font-style: italic;">
+                    "bulk-print-js 让大批量打印变得简单高效，解决了内存溢出和性能问题。"
+                </blockquote>
+            </div>
+        </div>
+    </div>
+
+    <script src="../dist/bulk-print.umd.js"></script>
+    <script>
+        // 更新时间戳
+        function updateTimestamps() {
+            for(let i = 1; i <= 5; i++) {
+                const timeSpan = document.getElementById(`time${i}`);
+                if(timeSpan) {
+                    timeSpan.textContent = new Date().toLocaleString('zh-CN');
+                }
+            }
+        }
+
+        function updateProgress(message, type = 'info') {
+            const progressEl = document.getElementById('progress');
+            const icons = {
+                'info': 'ℹ️',
+                'success': '✅',
+                'error': '❌',
+                'warning': '⚠️'
+            };
+            progressEl.innerHTML = `<strong>${icons[type]} 状态：</strong>${message}`;
+        }
+
+        async function startBasicPrint() {
+            updateProgress('开始基础打印（自动模式）...', 'info');
+            updateTimestamps();
+            
+            try {
+                const printer = new BulkPrint({
+                    batchSize: 2,
+                    autoMode: true,
+                    delayBetweenBatches: 500
+                });
+
+                printer.on('progress', (data) => {
+                    updateProgress(`打印进度: ${data.progress}% (${data.printedPages}/${data.totalPages} 页)`, 'info');
+                });
+
+                printer.on('finish', (data) => {
+                    updateProgress(`🎉 打印完成! 共打印 ${data.printedPages} 页`, 'success');
+                });
+
+                await printer.print({
+                    printElement: document.getElementById('print-container'),
+                    totalPages: 5,
+                    directPrintCallback: () => {
+                        // 用户自定义的打印逻辑
+                        console.log('执行自定义打印');
+                        window.print();
+                    }
+                });
+            } catch (error) {
+                updateProgress(`❌ 打印失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function startManualPrint() {
+            updateProgress('开始手动确认打印...', 'info');
+            updateTimestamps();
+            
+            try {
+                const printer = new BulkPrint({
+                    batchSize: 1,
+                    autoMode: false,
+                    delayBetweenBatches: 1000,
+                    confirmEachBatch: true
+                });
+
+                printer.on('batchStart', (data) => {
+                    updateProgress(`🔄 开始第 ${data.batch} 批打印，请确认打印对话框`, 'warning');
+                });
+
+                printer.on('progress', (data) => {
+                    updateProgress(`📊 进度: ${data.progress}% (${data.printedPages}/${data.totalPages} 页)`, 'info');
+                });
+
+                printer.on('finish', (data) => {
+                    updateProgress(`🎉 全部完成! 共打印 ${data.printedPages} 页`, 'success');
+                });
+
+                await printer.print({
+                    printElement: document.getElementById('print-container'),
+                    totalPages: 5,
+                    directPrintCallback: () => {
+                        // 用户自定义的打印逻辑
+                        console.log('执行自定义打印');
+                        window.print();
+                    }
+                });
+            } catch (error) {
+                updateProgress(`❌ 打印失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function startLargePrint() {
+            // 生成更多页面用于大批量测试
+            const container = document.getElementById('print-container');
+            const currentPages = container.children.length;
+            
+            if (currentPages < 50) {
+                for (let i = currentPages + 1; i <= 50; i++) {
+                    const page = document.createElement('div');
+                    page.className = 'print-page';
+                    page.innerHTML = `
+                        <h2>📄 第 ${i} 页</h2>
+                        <p>这是第 ${i} 页的大批量测试内容。</p>
+                        <p><strong>页面编号：</strong>${i} / 50</p>
+                        <p><strong>生成时间：</strong>${new Date().toLocaleString('zh-CN')}</p>
+                        <div style="padding: 20px; background: #f8f9fa; margin: 10px 0;">
+                            <p>这是大批量打印测试的第 ${i} 页内容。</p>
+                            <p>用于验证内存优化和分批处理功能。</p>
+                        </div>
+                    `;
+                    container.appendChild(page);
+                }
+            }
+
+            updateProgress('开始大批量打印测试（50页）...', 'info');
+            
+            try {
+                const printer = new BulkPrint({
+                    batchSize: 10,
+                    autoMode: true,
+                    delayBetweenBatches: 800
+                });
+
+                printer.on('batchStart', (data) => {
+                    updateProgress(`📦 开始第 ${data.batch}/${data.totalBatches} 批，处理 ${data.pagesInBatch} 页`, 'info');
+                });
+
+                printer.on('progress', (data) => {
+                    updateProgress(`📊 总进度: ${data.progress}% (${data.printedPages}/50 页)`, 'info');
+                });
+
+                printer.on('finish', (data) => {
+                    updateProgress(`🎉 大批量打印完成! 共打印 ${data.printedPages} 页`, 'success');
+                });
+
+                await printer.print({
+                    printElement: container,
+                    totalPages: 50,
+                    batchThreshold: 20,
+                    directPrintCallback: () => {
+                        // 用户自定义的打印逻辑
+                        console.log('执行自定义打印');
+                        window.print();
+                    }
+                });
+            } catch (error) {
+                updateProgress(`❌ 大批量打印失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 页面加载时更新时间戳
+        document.addEventListener('DOMContentLoaded', updateTimestamps);
+    </script>
+</body>
+</html>

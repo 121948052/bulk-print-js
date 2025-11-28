@@ -1,0 +1,48 @@
+{
+  "name": "bulk-print-js",
+  "version": "1.0.0",
+  "description": "A solution for batch printing large volumes of pages in web applications, preventing memory overflow by splitting into multiple print tasks.",
+  "main": "dist/bulk-print.umd.js",
+  "module": "dist/bulk-print.es.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/bulk-print.es.js",
+      "require": "./dist/bulk-print.umd.js"
+    }
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^7.2.4"
+  },
+  "keywords": [
+    "print",
+    "batch-print",
+    "web-print",
+    "memory-optimization",
+    "large-scale-print",
+    "javascript",
+    "browser"
+  ],
+  "author": "Van Zhang",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/121948052/bulk-print-js.git"
+  },
+  "homepage": "https://github.com/121948052/bulk-print-js",
+  "bugs": {
+    "url": "https://github.com/121948052/bulk-print-js/issues"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ]
+}
