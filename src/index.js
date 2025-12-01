@@ -18,6 +18,7 @@
 
       this.reset();
       this._listeners = {};
+      this._printContainer = null;
     }
 
     // 重置状态
@@ -28,16 +29,25 @@
       this.printedPages = 0;
       this.isPrinting = false;
       this.directPrintCallback = null;
+      this._cleanupPrintContainer();
     }
 
-    // 查找页面元素
+    // 查找页面元素 - 支持单层 Shadow DOM
     findPages(container, selector) {
       if (!container || !selector) return [];
       
       try {
         let results = [...container.querySelectorAll(selector)];
+        // 支持单层 Shadow DOM
         if (container.shadowRoot) {
             results.push(...container.shadowRoot.querySelectorAll(selector));
+        }
+        // 搜索子元素的 Shadow DOM（单层）
+        const children = container.children || [];
+        for (let child of children) {
+            if (child.shadowRoot) {
+                results.push(...child.shadowRoot.querySelectorAll(selector));
+            }
         }
         return results;
       } catch (error) {
@@ -193,16 +203,61 @@
         throw new Error(`未找到页面: ${this.options.pageSelector}`);
       }
 
-      // 隐藏所有，显示当前批次
-      pages.forEach(page => page.style.display = 'none');
+      // 使用隐藏容器方案
+      await this._prepareHiddenContainer(pages, start, count);
+
+      await new Promise(resolve => requestAnimationFrame(resolve));
+    }
+
+    // 准备隐藏容器用于打印
+    async _prepareHiddenContainer(pages, start, count) {
+      // 清理之前的容器
+      this._cleanupPrintContainer();
+      
+      // 创建隐藏的打印容器
+      this._printContainer = document.createElement('div');
+      this._printContainer.id = `bulk-print-container-${Date.now()}`;
+      this._printContainer.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -9999;
+        visibility: hidden;
+        pointer-events: none;
+        background: white;
+      `;
+      
+      // 复制当前批次的页面到隐藏容器
       for (let i = 0; i < count; i++) {
         const pageIndex = start + i;
         if (pageIndex < pages.length) {
-          pages[pageIndex].style.display = 'block';
+          const originalPage = pages[pageIndex];
+          const clonedPage = originalPage.cloneNode(true);
+          
+          // 确保克隆的页面可见
+          clonedPage.style.display = 'block';
+          clonedPage.style.visibility = 'visible';
+          clonedPage.style.position = 'static';
+          
+          this._printContainer.appendChild(clonedPage);
         }
       }
+      
+      // 添加到页面并等待渲染
+      document.body.appendChild(this._printContainer);
+      
+      // 等待样式应用完成
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
 
-      await new Promise(resolve => requestAnimationFrame(resolve));
+    // 清理打印容器
+    _cleanupPrintContainer() {
+      if (this._printContainer && this._printContainer.parentNode) {
+        this._printContainer.parentNode.removeChild(this._printContainer);
+        this._printContainer = null;
+      }
     }
 
     // 执行打印
@@ -214,8 +269,20 @@
           this.directPrintCallback();
           setTimeout(resolve, delay);
         } else {
+          // 隐藏容器方案：临时显示容器进行打印
+          this._printContainer.style.visibility = 'visible';
+          this._printContainer.style.zIndex = '9999';
+          
           window.print();
-          setTimeout(resolve, delay);
+          
+          // 打印后恢复隐藏
+          setTimeout(() => {
+            if (this._printContainer) {
+              this._printContainer.style.visibility = 'hidden';
+              this._printContainer.style.zIndex = '-9999';
+            }
+            resolve();
+          }, 100);
         }
       });
     }
