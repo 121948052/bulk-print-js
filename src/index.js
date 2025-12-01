@@ -11,7 +11,7 @@
       this.options = {
         batchSize: Math.max(1, options.batchSize || 100),
         autoMode: !!options.autoMode,
-        delay: Math.max(0, options.delay || 500),
+        delay: Math.max(100, options.delay || 500),
         pageSelector: options.pageSelector || '.print-page',
         confirmEachBatch: options.confirmEachBatch !== false
       };
@@ -40,18 +40,18 @@
         let results = [...container.querySelectorAll(selector)];
         // 支持单层 Shadow DOM
         if (container.shadowRoot) {
-            results.push(...container.shadowRoot.querySelectorAll(selector));
+          results.push(...container.shadowRoot.querySelectorAll(selector));
         }
         // 搜索子元素的 Shadow DOM（单层）
         const children = container.children || [];
         for (let child of children) {
-            if (child.shadowRoot) {
-                results.push(...child.shadowRoot.querySelectorAll(selector));
-            }
+          if (child.shadowRoot) {
+            results.push(...child.shadowRoot.querySelectorAll(selector));
+          }
         }
         return results;
       } catch (error) {
-        console.warn('查找页面失败:', error);
+        console.warn('[BulkPrint] 查找页面失败:', error);
         return [];
       }
     }
@@ -100,25 +100,47 @@
         if (shouldBatch) {
           await this.printInBatches(printElement, totalPages);
         } else {
-          await this.printAll(printElement);
+          await this.printAll(printElement, totalPages);
         }
       } catch (error) {
         this._emit('error', error);
         throw error;
       } finally {
         this.isPrinting = false;
+        this._cleanupPrintContainer();
       }
     }
 
     // 单次打印
-    async printAll(printElement) {
+    async printAll(printElement, totalPages) {
       const pages = this.findPages(printElement, this.options.pageSelector);
-      pages.forEach(page => page.style.display = 'block');
+
+      await this._prepareHiddenContainer(pages, 0, pages.length);
+
+      // 触发批次开始事件（单次打印也算一个批次）
+      this._emit('batchStart', {
+        batch: 1,
+        totalBatches: 1,
+        startPage: 1,
+        pagesInBatch: pages.length
+      });
+
       await this.doPrint();
-      
+
+      // 更新进度
+      this.printedPages = pages.length;
+      this._emit('progress', {
+        progress: 100,
+        printedPages: this.printedPages,
+        totalPages: totalPages || pages.length,
+        currentBatch: 1,
+        totalBatches: 1,
+        status: 'queued'
+      });
+
       this._emit('finish', {
         status: 'done',
-        totalPages: pages.length,
+        totalPages: totalPages || pages.length,
         printedPages: pages.length,
         mode: 'single'
       });
@@ -157,13 +179,14 @@
       const start = batchIndex * this.options.batchSize;
       const end = Math.min(start + this.options.batchSize, this.totalPages);
       const count = end - start;
+      const pages = this.findPages(printElement, this.options.pageSelector);
 
-      await this.showBatch(printElement, start, count);
+      await this._prepareHiddenContainer(pages, start, count);
 
       this._emit('batchStart', {
         batch: batchIndex + 1,
         totalBatches: this.totalBatches,
-        startPage: start,
+        startPage: start + 1,
         pagesInBatch: count
       });
 
@@ -177,17 +200,21 @@
       }
 
       await this.doPrint();
-      
+
       this.printedPages += count;
-      
+      this.currentBatch = batchIndex + 1;
+
       this._emit('progress', {
         progress: Math.round((this.printedPages / this.totalPages) * 100),
         printedPages: this.printedPages,
         totalPages: this.totalPages,
         currentBatch: this.currentBatch,
         totalBatches: this.totalBatches,
-        status: this.printedPages === this.totalPages ? 'queued' : 'processing' // 状态指示
+        status: this.printedPages === this.totalPages ? 'queued' : 'processing'
       });
+
+      // 清理当前批次的容器，为下一批做准备
+      this._cleanupPrintContainer();
 
       // 批次延迟
       if (batchIndex < this.totalBatches - 1) {
@@ -195,25 +222,20 @@
       }
     }
 
-    // 显示指定批次
-    async showBatch(printElement, start, count) {
-      const pages = this.findPages(printElement, this.options.pageSelector);
-      
-      if (!pages.length) {
-        throw new Error(`未找到页面: ${this.options.pageSelector}`);
-      }
-
-      // 使用隐藏容器方案
-      await this._prepareHiddenContainer(pages, start, count);
-
-      await new Promise(resolve => requestAnimationFrame(resolve));
-    }
-
     // 准备隐藏容器用于打印
     async _prepareHiddenContainer(pages, start, count) {
       // 清理之前的容器
       this._cleanupPrintContainer();
-      
+
+      // 检查是否有足够的页面
+      if (pages.length === 0) {
+        throw new Error(`未找到页面: ${this.options.pageSelector}`);
+      }
+
+      if (start >= pages.length) {
+        throw new Error(`起始索引 ${start} 超出页面范围`);
+      }
+
       // 创建隐藏的打印容器
       this._printContainer = document.createElement('div');
       this._printContainer.id = `bulk-print-container-${Date.now()}`;
@@ -223,33 +245,61 @@
         left: 0;
         width: 100%;
         height: 100%;
-        z-index: -9999;
+        z-index: 999999;
         visibility: hidden;
         pointer-events: none;
         background: white;
+        overflow: auto;
       `;
-      
+
       // 复制当前批次的页面到隐藏容器
+      let actualCount = 0;
       for (let i = 0; i < count; i++) {
         const pageIndex = start + i;
         if (pageIndex < pages.length) {
           const originalPage = pages[pageIndex];
-          const clonedPage = originalPage.cloneNode(true);
-          
-          // 确保克隆的页面可见
-          clonedPage.style.display = 'block';
-          clonedPage.style.visibility = 'visible';
-          clonedPage.style.position = 'static';
-          
-          this._printContainer.appendChild(clonedPage);
+          try {
+            const clonedPage = originalPage.cloneNode(true);
+
+            // 复制计算样式
+            const computedStyle = window.getComputedStyle(originalPage);
+            clonedPage.style.cssText = originalPage.style.cssText;
+
+            // 确保克隆的页面可见
+            clonedPage.style.display = 'block';
+            clonedPage.style.visibility = 'visible';
+            clonedPage.style.position = 'relative';
+            clonedPage.style.width = computedStyle.width || '100%';
+            clonedPage.style.height = computedStyle.height || 'auto';
+
+            // 添加分页（如果需要）
+            if (i < count - 1) {
+              clonedPage.style.pageBreakAfter = 'always';
+              clonedPage.style.breakAfter = 'page';
+            }
+
+            this._printContainer.appendChild(clonedPage);
+            actualCount++;
+          } catch (err) {
+            console.warn(`[BulkPrint] 复制第 ${pageIndex + 1} 页失败:`, err);
+          }
         }
       }
-      
+
+      if (actualCount === 0) {
+        throw new Error('未能复制任何页面到打印容器');
+      }
+
       // 添加到页面并等待渲染
       document.body.appendChild(this._printContainer);
-      
+
       // 等待样式应用完成
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise(resolve => {
+        // 等待两帧确保渲染完成
+        requestAnimationFrame(() => {
+          requestAnimationFrame(resolve);
+        });
+      });
     }
 
     // 清理打印容器
@@ -269,17 +319,23 @@
           this.directPrintCallback();
           setTimeout(resolve, delay);
         } else {
-          // 隐藏容器方案：临时显示容器进行打印
+          // 确保容器存在
+          if (!this._printContainer) {
+            console.error('[BulkPrint] 打印容器不存在');
+            resolve();
+            return;
+          }
+
+          // 临时显示容器进行打印
           this._printContainer.style.visibility = 'visible';
-          this._printContainer.style.zIndex = '9999';
-          
+
+          // 触发打印
           window.print();
           
           // 打印后恢复隐藏
           setTimeout(() => {
             if (this._printContainer) {
               this._printContainer.style.visibility = 'hidden';
-              this._printContainer.style.zIndex = '-9999';
             }
             resolve();
           }, 100);
@@ -301,6 +357,7 @@
     stop() {
       const wasPrinting = this.isPrinting;
       this.isPrinting = false;
+      this._cleanupPrintContainer();
 
       if (wasPrinting) {
         this._emit('stopped', {
@@ -309,7 +366,7 @@
           currentBatch: this.currentBatch
         });
       }
-      
+
       return wasPrinting;
     }
 
@@ -326,7 +383,7 @@
     }
 
     static detectBrowser() {
-      const ua = navigator.userAgent;
+      const ua = navigator.userAgent.toLowerCase();
 
       if (ua.includes('edg')) return 'Edge';
       if (ua.includes('chrome')) return 'Chrome';
