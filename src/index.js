@@ -49,7 +49,9 @@
         }
 
         _emit(event, data) {
-            this.events[event]?.(data);
+            if (this.events[event] && typeof this.events[event] === 'function') {
+                this.events[event](data);
+            }
         }
 
         // 主打印方法
