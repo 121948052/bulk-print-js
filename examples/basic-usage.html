@@ -144,7 +144,7 @@
                 const printer = new BulkPrint({
                     batchSize: 2,
                     autoMode: true,
-                    delayBetweenBatches: 500
+                    delay: 500
                 });
 
                 printer.on('progress', (data) => {
@@ -177,7 +177,7 @@
                 const printer = new BulkPrint({
                     batchSize: 1,
                     autoMode: false,
-                    delayBetweenBatches: 1000,
+                    delay: 1000,
                     confirmEachBatch: true
                 });
 
@@ -236,7 +236,7 @@
                 const printer = new BulkPrint({
                     batchSize: 10,
                     autoMode: true,
-                    delayBetweenBatches: 800
+                    delay: 800
                 });
 
                 printer.on('batchStart', (data) => {

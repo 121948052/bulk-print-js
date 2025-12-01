@@ -346,7 +346,7 @@
             const config = {
                 batchSize: parseInt(document.getElementById('batchSize').value),
                 autoMode: document.getElementById('autoMode').checked,
-                delayBetweenBatches: parseInt(document.getElementById('delay').value),
+                delay: parseInt(document.getElementById('delay').value),
                 confirmEachBatch: document.getElementById('confirmEachBatch').checked
             };
 
@@ -434,7 +434,7 @@
         // 更新统计信息
         function updateStats() {
             if (printer) {
-                const stats = printer.getStats();
+                const stats = printer.getStatus();
                 document.getElementById('printedPages').textContent = stats.printedPages || 0;
                 document.getElementById('currentBatch').textContent = `${stats.currentBatch || 0} / ${stats.totalBatches || 0}`;
                 

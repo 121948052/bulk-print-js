@@ -11,20 +11,20 @@ npm install bulk-print-js
 ## Usage
 
 ```javascript
-import BatchPrintManager from 'bulk-print-js';
+import BulkPrint from 'bulk-print-js';
 
-const printManager = new BatchPrintManager({
+const printManager = new BulkPrint({
     batchSize: 50,
     autoMode: false,
-    delayBetweenBatches: 1000
+    delay: 1000
 });
 
 // 事件监听
 printManager
-    .on('onProgress', (data) => {
+    .on('progress', (data) => {
         console.log(`打印进度: ${data.progress}%`);
     })
-    .on('onFinish', (data) => {
+    .on('finish', (data) => {
         console.log(`打印完成! 共打印 ${data.printedPages} 页`);
     });
 
@@ -104,7 +104,7 @@ import BulkPrint from 'bulk-print-js';
 
 const printer = new BulkPrint({
     batchSize: 100,
-    delayBetweenBatches: 1000
+    delay: 1000
 });
 
 // 事件监听
@@ -148,7 +148,7 @@ new BulkPrint(options)
 - `options` {Object} - 配置选项
   - `batchSize` {number} - 每批页数，默认：`100`
   - `autoMode` {boolean} - 自动模式，默认：`false`
-  - `delayBetweenBatches` {number} - 批次间延迟(ms)，默认：`500`
+  - `delay` {number} - 批次间延迟(ms)，默认：`500`
   - `confirmEachBatch` {boolean} - 每批确认，默认：`true`
   - `pageSelector` {string} - 页面元素选择器，默认：`'.print-page'`
 
@@ -183,6 +183,14 @@ await printer.print({
 ```javascript
 printer.on('progress', (data) => {
     console.log(`进度: ${data.progress}%`);
+    console.log(`状态: ${data.status}`); // "processing" 或 "queued"
+});
+printer.on('finish', (data) => {
+    console.log(data.message); // "所有打印任务已提交到打印队列"
+    console.log(`状态: ${data.status}`); // "queued"
+    console.log(`总页数: ${data.totalPages}`);
+    console.log(`已提交打印: ${data.printedPages}页`);
+    console.log(`总批次数: ${data.totalBatches}`);
 });
 ```
 
@@ -191,20 +199,32 @@ printer.on('progress', (data) => {
 - `progress` - 进度更新
 - `error` - 错误发生
 - `finish` - 打印完成
+- `cancel` - 用户取消打印
+- `stopped` - 打印被停止
 
 #### `stop()`
-停止打印过程。
+停止打印过程，返回是否成功停止。
 
 ```javascript
-printer.stop();
+const wasStopped = printer.stop();
+if (wasStopped) {
+    console.log('打印已停止');
+}
 ```
 
-#### `getStats()`
-获取打印统计信息。
+#### `getStatus()`
+获取打印状态信息。
 
 ```javascript
-const stats = printer.getStats();
+const stats = printer.getStatus();
 console.log(stats.printedPages); // 已打印页数
+```
+
+#### `off(event)`
+移除事件监听器。
+
+```javascript
+printer.off('progress');
 ```
 
 ### 静态方法
@@ -220,7 +240,14 @@ const browser = BulkPrint.detectBrowser(); // 'Chrome', 'Firefox', etc.
 获取浏览器推荐阈值。
 
 ```javascript
-const threshold = BulkPrint.getBrowserThreshold('Chrome'); // 100
+const threshold = BulkPrint.getBrowserThreshold('Chrome'); // 150
+```
+
+#### `BulkPrint.create(options)`
+创建 BulkPrint 实例的静态方法。
+
+```javascript
+const printer = BulkPrint.create({ batchSize: 50 });
 ```
 
 ## 🎪 使用示例
@@ -340,10 +367,11 @@ const printer = new BulkPrint({
 
 | 浏览器 | 推荐阈值 | 说明 |
 |--------|----------|------|
-| Chrome | 100 页 | 内存管理最佳 |
-| Firefox | 80 页 | 稍保守的阈值 |
-| Safari | 60 页 | 内存限制较严格 |
-| Edge | 90 页 | 基于 Chromium |
+| Chrome | 150 页 | 内存管理最佳 |
+| Firefox | 100 页 | 稍保守的阈值 |
+| Safari | 80 页 | 内存限制较严格 |
+| Edge | 120 页 | 基于 Chromium |
+| IE | 50 页 | 旧版浏览器 |
 
 ### 性能调优建议
 
@@ -352,7 +380,7 @@ const printer = new BulkPrint({
 const highPerfPrinter = new BulkPrint({
     batchSize: 80,
     autoMode: true,
-    delayBetweenBatches: 2000
+    delay: 2000
 });
 
 // 用户友好配置
@@ -360,7 +388,7 @@ const userFriendlyPrinter = new BulkPrint({
     batchSize: 50,
     autoMode: false,
     confirmEachBatch: true,
-    delayBetweenBatches: 1000
+    delay: 1000
 });
 ```
 
@@ -372,7 +400,7 @@ const userFriendlyPrinter = new BulkPrint({
 A: 确保 CSS 中定义了正确的 `@media print` 样式。
 
 **Q: 内存使用仍然很高？**
-A: 尝试减小 `batchSize` 或使用 `BulkPrint.getBatchThresholdByBrowser()` 获取推荐值。
+A: 尝试减小 `batchSize` 或使用 `BulkPrint.getBrowserThreshold()` 获取推荐值。
 
 **Q: 如何自定义页面样式？**
 A: 在打印容器的 CSS 中使用 `@media print` 查询：

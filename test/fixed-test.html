@@ -295,7 +295,7 @@
                 window.confirm = originalConfirm; // 恢复原始confirm
                 
                 // 验证配置是否保持不变
-                const stats = printer.getStats();
+                const stats = printer.getStatus();
                 if (confirmCallCount > 0) {
                     log('✅ 配置持久性测试成功（用户确认被正确调用）', 'success');
                 } else {

@@ -3,7 +3,7 @@ declare module 'bulk-print-js' {
   interface BulkPrintOptions {
     batchSize?: number;
     autoMode?: boolean;
-    delayBetweenBatches?: number;
+    delay?: number;
     confirmEachBatch?: boolean;
     pageSelector?: string;
   }
@@ -34,6 +34,18 @@ declare module 'bulk-print-js' {
     progress: number;
     printedPages: number;
     totalPages: number;
+    currentBatch: number;
+    totalBatches: number;
+    status: 'processing' | 'queued';
+  }
+
+  interface FinishEventData {
+    status: 'queued' | 'done';
+    message?: string;
+    totalPages: number;
+    printedPages: number;
+    totalBatches?: number;
+    mode?: 'single' | 'batch';
   }
 
   class BulkPrint {
@@ -41,14 +53,22 @@ declare module 'bulk-print-js' {
     
     findPages(container: HTMLElement, selector: string): HTMLElement[];
     
+    on(event: 'batchStart', handler: (data: BatchEventData) => void): this;
+    on(event: 'progress', handler: (data: ProgressEventData) => void): this;
+    on(event: 'finish', handler: (data: FinishEventData) => void): this;
+    on(event: 'error', handler: (error: Error) => void): this;
+    on(event: 'cancel', handler: (data: { batch: number }) => void): this;
+    on(event: 'stopped', handler: (data: { printedPages: number; totalPages: number; currentBatch: number }) => void): this;
     on(event: string, handler: (data: any) => void): this;
+    off(event: string): this;
 
     print(options: PrintOptions): Promise<void>;
-    stop(): void;
-    getStats(): PrintStats;
+    stop(): boolean;
+    getStatus(): PrintStats;
 
     static getBrowserThreshold(browser: string): number;
     static detectBrowser(): string;
+    static create(options?: BulkPrintOptions): BulkPrint;
   }
 
   export default BulkPrint;

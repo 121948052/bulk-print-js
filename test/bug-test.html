@@ -158,7 +158,7 @@
 
         function updateStats() {
             if (printer) {
-                const stats = printer.getStats();
+                const stats = printer.getStatus();
                 document.getElementById('totalPages').textContent = stats.totalPages || 0;
                 document.getElementById('printedPages').textContent = stats.printedPages || 0;
                 document.getElementById('currentBatch').textContent = stats.currentBatch || 0;
@@ -200,7 +200,7 @@
                 printer = new BulkPrint({
                     batchSize: 2,
                     autoMode: true,
-                    delayBetweenBatches: 100
+                    delay: 100
                 });
                 
                 printer.on('progress', (data) => {
@@ -319,7 +319,7 @@
                 printer = new BulkPrint({
                     batchSize: 100,
                     autoMode: true,
-                    delayBetweenBatches: 10 // 快速测试
+                    delay: 10 // 快速测试
                 });
                 
                 // 生成大量页面
@@ -398,7 +398,7 @@
                 printer = new BulkPrint({
                     batchSize: 2,
                     autoMode: true,
-                    delayBetweenBatches: 100
+                    delay: 100
                 });
                 
                 // 监听事件
@@ -460,7 +460,7 @@
             try {
                 printer = new BulkPrint({
                     batchSize: -1, // 无效值
-                    delayBetweenBatches: 'invalid' // 无效类型
+                    delay: 'invalid' // 无效类型
                 });
                 
                 await printer.print({
