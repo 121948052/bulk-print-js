@@ -1,73 +1,74 @@
 // index.d.ts
 declare module 'bulk-print-js' {
   interface BulkPrintOptions {
-    batchSize?: number;
-    autoMode?: boolean;
-    delay?: number;
-    confirmEachBatch?: boolean;
     pageSelector?: string;
+    threshold?: number;
+    batchSize?: number;
   }
 
   interface PrintOptions {
-    printElement: HTMLElement;
+    element: HTMLElement;
     totalPages: number;
-    batchThreshold?: number;
-    directPrintCallback?: () => void;
   }
 
-  interface PrintStats {
+  interface PrintStatus {
+    isPrinting: boolean;
+    currentBatch: number;
+    totalBatches: number;
+    totalPages: number;
+    progress: number;
+  }
+
+  interface StartEventData {
+    type: 'start';
     totalPages: number;
     totalBatches: number;
-    currentBatch: number;
-    printedPages: number;
-    isPrinting: boolean;
+    batchSize: number;
   }
 
-  interface BatchEventData {
+  interface BatchStartEventData {
+    type: 'batchStart';
     batch: number;
     totalBatches: number;
+    pagesInBatch: number;
     startPage: number;
+  }
+
+  interface BatchCompleteEventData {
+    type: 'batchComplete';
+    batch: number;
+    totalBatches: number;
     pagesInBatch: number;
   }
 
-  interface ProgressEventData {
-    progress: number;
+  interface CancelEventData {
+    type: 'cancel';
+    message: string;
     printedPages: number;
     totalPages: number;
     currentBatch: number;
     totalBatches: number;
-    status: 'processing' | 'queued';
   }
 
-  interface FinishEventData {
-    status: 'queued' | 'done';
-    message?: string;
-    totalPages: number;
-    printedPages: number;
-    totalBatches?: number;
-    mode?: 'single' | 'batch';
-  }
+  type EventData = StartEventData | BatchStartEventData | BatchCompleteEventData | CancelEventData;
 
   class BulkPrint {
     constructor(options?: BulkPrintOptions);
     
-    findPages(container: HTMLElement, selector: string): HTMLElement[];
+    on(event: 'start', handler: (data: StartEventData) => void): this;
+    on(event: 'batchStart', handler: (data: BatchStartEventData) => void): this;
+    on(event: 'batchComplete', handler: (data: BatchCompleteEventData) => void): this;
+    on(event: 'cancel', handler: (data: CancelEventData) => void): this;
+    on(event: string, handler: (data: EventData) => void): this;
     
-    on(event: 'batchStart', handler: (data: BatchEventData) => void): this;
-    on(event: 'progress', handler: (data: ProgressEventData) => void): this;
-    on(event: 'finish', handler: (data: FinishEventData) => void): this;
-    on(event: 'error', handler: (error: Error) => void): this;
-    on(event: 'cancel', handler: (data: { batch: number }) => void): this;
-    on(event: 'stopped', handler: (data: { printedPages: number; totalPages: number; currentBatch: number }) => void): this;
-    on(event: string, handler: (data: any) => void): this;
-    off(event: string): this;
+    off(event: string, callback?: (data: any) => void): this;
 
-    print(options: PrintOptions): Promise<void>;
-    stop(): boolean;
-    getStatus(): PrintStats;
+    print(options: PrintOptions): Promise<{ success: boolean; pages: number }>;
+    cancel(): boolean;
+    getStatus(): PrintStatus;
+    reset(): void;
+    cleanup(): void;
 
-    static getBrowserThreshold(browser: string): number;
-    static detectBrowser(): string;
     static create(options?: BulkPrintOptions): BulkPrint;
   }
 
