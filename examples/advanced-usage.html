@@ -178,23 +178,20 @@
                 <input type="number" id="batchSize" value="20" min="1" max="100">
             </div>
             <div class="control-group">
-                <label>批次间延迟(ms):</label>
-                <input type="number" id="delay" value="1000" min="0" max="5000">
-                <label>批次阈值:</label>
-                <input type="number" id="batchThreshold" value="50" min="10" max="200">
+                <label>分批阈值:</label>
+                <input type="number" id="threshold" value="50" min="10" max="200">
+                <label>页面选择器:</label>
+                <input type="text" id="pageSelector" value=".print-page" placeholder=".print-page">
             </div>
             <div class="control-group">
-                <label>自动模式:</label>
-                <input type="checkbox" id="autoMode">
-                <label>每批确认:</label>
-                <input type="checkbox" id="confirmEachBatch" checked>
                 <label>显示调试日志:</label>
                 <input type="checkbox" id="debugMode" checked>
+                <label>智能批次大小:</label>
+                <input type="checkbox" id="smartBatchSize" checked>
             </div>
             <div class="control-group">
                 <button onclick="startPrint()">🎯 开始打印</button>
-                <button onclick="pausePrint()" class="secondary">⏸️ 暂停</button>
-                <button onclick="stopPrint()" class="stop">⏹️ 停止</button>
+                <button onclick="stopPrint()" class="stop">⏹️ 取消打印</button>
                 <button onclick="resetStats()" class="secondary">🔄 重置</button>
                 <button onclick="exportLogs()" class="secondary">📥 导出日志</button>
             </div>
@@ -228,12 +225,12 @@
                     <div class="stat-value" id="remainingTime">--</div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-label">浏览器类型</div>
-                    <div class="stat-value" id="browserType">-</div>
+                    <div class="stat-label">页面选择器</div>
+                    <div class="stat-value" id="currentSelector">.print-page</div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-label">推荐阈值</div>
-                    <div class="stat-value" id="recommendedThreshold">-</div>
+                    <div class="stat-label">当前阈值</div>
+                    <div class="stat-value" id="currentThreshold">50</div>
                 </div>
             </div>
         </div>
@@ -258,15 +255,8 @@
 
         // 初始化
         function init() {
-            const browserType = BulkPrint.detectBrowser();
-            const threshold = BulkPrint.getBrowserThreshold(browserType);
-            
-            document.getElementById('browserType').textContent = browserType;
-            document.getElementById('recommendedThreshold').textContent = threshold + ' 页';
-            document.getElementById('batchThreshold').value = threshold;
-            
             addLog('系统初始化完成', 'info');
-            addLog(`检测到浏览器: ${browserType}, 推荐阈值: ${threshold} 页`, 'info');
+            addLog('bulk-print-js 已准备就绪', 'info');
             
             generatePrintContent();
         }
@@ -327,93 +317,86 @@
 
         // 开始打印
         async function startPrint() {
-            if (isPrinting && !isPaused) {
+            if (isPrinting) {
                 addLog('正在打印中，请等待完成', 'warning');
                 return;
             }
 
-            if (isPaused) {
-                isPaused = false;
-                addLog('恢复打印', 'info');
-                return;
-            }
-
             isPrinting = true;
-            isPaused = false;
             printStartTime = Date.now();
             generatePrintContent(); // 重新生成内容
 
+            const smartBatchSize = document.getElementById('smartBatchSize').checked;
             const config = {
-                batchSize: parseInt(document.getElementById('batchSize').value),
-                autoMode: document.getElementById('autoMode').checked,
-                delay: parseInt(document.getElementById('delay').value),
-                confirmEachBatch: document.getElementById('confirmEachBatch').checked
+                pageSelector: document.getElementById('pageSelector').value,
+                threshold: parseInt(document.getElementById('threshold').value),
+                batchSize: smartBatchSize ? undefined : parseInt(document.getElementById('batchSize').value)
             };
 
             const printOptions = {
-                printElement: document.getElementById('print-container'),
-                totalPages: parseInt(document.getElementById('totalPages').value),
-                batchThreshold: parseInt(document.getElementById('batchThreshold').value),
-                directPrintCallback: () => {
-                    // 用户自定义的打印逻辑
-                    console.log('执行自定义打印');
-                    window.print();
-                }
+                element: document.getElementById('print-container'),
+                totalPages: parseInt(document.getElementById('totalPages').value)
             };
 
             addLog(`开始打印任务: ${JSON.stringify(config)}`, 'info');
             updateProgress('初始化打印任务...', 'info');
+
+            // 更新统计显示
+            document.getElementById('currentSelector').textContent = config.pageSelector;
+            document.getElementById('currentThreshold').textContent = config.threshold;
 
             try {
                 printer = new BulkPrint(config);
 
                 // 事件监听
                 printer
+                    .on('start', (data) => {
+                        addLog(`🚀 开始打印: ${data.totalPages}页，分${data.totalBatches}批，每批${data.batchSize}页`, 'info');
+                        updateStats();
+                    })
                     .on('batchStart', (data) => {
-                        addLog(`开始第 ${data.batch} 批打印 (${data.pagesInBatch} 页)`, 'info');
+                        addLog(`📦 开始第 ${data.batch} 批打印 (${data.pagesInBatch} 页)`, 'info');
                         updateStats();
-                        updateProgressBar(data.progress || 0);
+                        const progress = Math.round((data.batch / data.totalBatches) * 100);
+                        updateProgressBar(progress);
                     })
-                    .on('progress', (data) => {
-                        addLog(`打印进度: ${data.progress}%`, 'info');
-                        updateProgress(`打印进度: ${data.progress}%`, 'info');
+                    .on('batchComplete', (data) => {
+                        addLog(`✅ 第 ${data.batch} 批完成`, 'success');
                         updateStats();
-                        updateProgressBar(data.progress);
+                        const progress = Math.round((data.batch / data.totalBatches) * 100);
+                        updateProgressBar(progress);
                     })
-                    .on('error', (error) => {
-                        addLog(`打印错误: ${error.message}`, 'error');
-                        isPrinting = false;
-                    })
-                    .on('finish', (data) => {
-                        const duration = Date.now() - printStartTime;
-                        addLog(`🎉 打印完成! 共打印 ${data.printedPages} 页，总耗时 ${duration}ms`, 'success');
+                    .on('cancel', (data) => {
+                        addLog(`⏹️ 打印被取消: ${data.message}`, 'warning');
                         isPrinting = false;
                         updateStats();
-                        updateProgressBar(100);
                     });
 
-                await printer.print(printOptions);
+                const result = await printer.print(printOptions);
+                
+                if (result.success) {
+                    const duration = Date.now() - printStartTime;
+                    addLog(`🎉 打印完成! 共打印 ${result.pages} 页，总耗时 ${duration}ms`, 'success');
+                    updateProgressBar(100);
+                }
             } catch (error) {
                 addLog(`❌ 打印失败: ${error.message}`, 'error');
+            } finally {
                 isPrinting = false;
-            }
-        }
-
-        // 暂停打印
-        function pausePrint() {
-            if (isPrinting && !isPaused) {
-                isPaused = true;
-                addLog('打印已暂停', 'warning');
+                updateStats();
             }
         }
 
         // 停止打印
         function stopPrint() {
             if (printer && isPrinting) {
-                printer.stop();
+                const wasCancelled = printer.cancel();
+                if (wasCancelled) {
+                    addLog('打印已取消', 'warning');
+                } else {
+                    addLog('无法取消打印', 'warning');
+                }
                 isPrinting = false;
-                isPaused = false;
-                addLog('打印已停止', 'warning');
                 updateStats();
             }
         }
@@ -435,19 +418,22 @@
         function updateStats() {
             if (printer) {
                 const stats = printer.getStatus();
-                document.getElementById('printedPages').textContent = stats.printedPages || 0;
+                document.getElementById('printedPages').textContent = (stats.currentBatch * (printer.options.batchSize || 1)) || 0;
                 document.getElementById('currentBatch').textContent = `${stats.currentBatch || 0} / ${stats.totalBatches || 0}`;
                 
                 // 计算打印速度
-                if (printStartTime && stats.printedPages > 0) {
+                if (printStartTime && stats.currentBatch > 0) {
                     const elapsedMinutes = (Date.now() - printStartTime) / 60000;
-                    const speed = Math.round(stats.printedPages / elapsedMinutes);
+                    const printedPages = stats.currentBatch * (printer.options.batchSize || 1);
+                    const speed = Math.round(printedPages / elapsedMinutes);
                     document.getElementById('printSpeed').textContent = speed + ' 页/分';
                     
                     // 估算剩余时间
-                    const remainingPages = (stats.totalPages || 0) - stats.printedPages;
-                    const remainingMinutes = Math.round(remainingPages / speed);
-                    document.getElementById('remainingTime').textContent = remainingMinutes + ' 分钟';
+                    const remainingPages = (stats.totalPages || 0) - printedPages;
+                    if (speed > 0) {
+                        const remainingMinutes = Math.round(remainingPages / speed);
+                        document.getElementById('remainingTime').textContent = remainingMinutes + ' 分钟';
+                    }
                 }
             }
         }
@@ -464,7 +450,6 @@
             document.getElementById('logOutput').innerHTML = '';
             logs = [];
             isPrinting = false;
-            isPaused = false;
             printStartTime = null;
             addLog('统计信息已重置', 'info');
         }

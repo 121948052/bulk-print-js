@@ -137,71 +137,72 @@
         }
 
         async function startBasicPrint() {
-            updateProgress('开始基础打印（自动模式）...', 'info');
+            updateProgress('开始基础打印...', 'info');
             updateTimestamps();
             
             try {
                 const printer = new BulkPrint({
-                    batchSize: 2,
-                    autoMode: true,
-                    delay: 500
+                    pageSelector: '.print-page',
+                    threshold: 10,
+                    batchSize: 2
                 });
 
-                printer.on('progress', (data) => {
-                    updateProgress(`打印进度: ${data.progress}% (${data.printedPages}/${data.totalPages} 页)`, 'info');
+                printer.on('start', (data) => {
+                    updateProgress(`🚀 开始打印: ${data.totalPages}页，分${data.totalBatches}批`, 'info');
                 });
 
-                printer.on('finish', (data) => {
-                    updateProgress(`🎉 打印完成! 共打印 ${data.printedPages} 页`, 'success');
+                printer.on('batchStart', (data) => {
+                    updateProgress(`📦 开始第 ${data.batch}/${data.totalBatches} 批 (${data.pagesInBatch}页)`, 'info');
                 });
 
-                await printer.print({
-                    printElement: document.getElementById('print-container'),
-                    totalPages: 5,
-                    directPrintCallback: () => {
-                        // 用户自定义的打印逻辑
-                        console.log('执行自定义打印');
-                        window.print();
-                    }
+                printer.on('batchComplete', (data) => {
+                    updateProgress(`✅ 第 ${data.batch} 批完成`, 'success');
                 });
+
+                const result = await printer.print({
+                    element: document.getElementById('print-container'),
+                    totalPages: 5
+                });
+
+                if (result.success) {
+                    updateProgress(`🎉 打印完成! 共打印 ${result.pages} 页`, 'success');
+                }
             } catch (error) {
                 updateProgress(`❌ 打印失败: ${error.message}`, 'error');
             }
         }
 
         async function startManualPrint() {
-            updateProgress('开始手动确认打印...', 'info');
+            updateProgress('开始逐页打印...', 'info');
             updateTimestamps();
             
             try {
                 const printer = new BulkPrint({
-                    batchSize: 1,
-                    autoMode: false,
-                    delay: 1000,
-                    confirmEachBatch: true
+                    pageSelector: '.print-page',
+                    threshold: 1, // 强制分批
+                    batchSize: 1 // 每批1页
+                });
+
+                printer.on('start', (data) => {
+                    updateProgress(`🚀 开始逐页打印: ${data.totalPages}页，分${data.totalBatches}批`, 'info');
                 });
 
                 printer.on('batchStart', (data) => {
-                    updateProgress(`🔄 开始第 ${data.batch} 批打印，请确认打印对话框`, 'warning');
+                    updateProgress(`🔄 开始第 ${data.batch}/${data.totalBatches} 批，请确认打印对话框`, 'warning');
                 });
 
-                printer.on('progress', (data) => {
-                    updateProgress(`📊 进度: ${data.progress}% (${data.printedPages}/${data.totalPages} 页)`, 'info');
+                printer.on('batchComplete', (data) => {
+                    updateProgress(`✅ 第 ${data.batch} 页完成`, 'success');
                 });
 
-                printer.on('finish', (data) => {
-                    updateProgress(`🎉 全部完成! 共打印 ${data.printedPages} 页`, 'success');
+                const result = await printer.print({
+                    element: document.getElementById('print-container'),
+                    totalPages: 5
                 });
 
-                await printer.print({
-                    printElement: document.getElementById('print-container'),
-                    totalPages: 5,
-                    directPrintCallback: () => {
-                        // 用户自定义的打印逻辑
-                        console.log('执行自定义打印');
-                        window.print();
-                    }
-                });
+                if (result.success) {
+                    updateProgress(`🎉 逐页打印完成! 共打印 ${result.pages} 页`, 'success');
+                }
             } catch (error) {
                 updateProgress(`❌ 打印失败: ${error.message}`, 'error');
             }
@@ -234,33 +235,32 @@
             
             try {
                 const printer = new BulkPrint({
-                    batchSize: 10,
-                    autoMode: true,
-                    delay: 800
+                    pageSelector: '.print-page',
+                    threshold: 20,
+                    batchSize: 10
+                });
+
+                printer.on('start', (data) => {
+                    updateProgress(`🚀 开始大批量打印: ${data.totalPages}页，分${data.totalBatches}批`, 'info');
                 });
 
                 printer.on('batchStart', (data) => {
                     updateProgress(`📦 开始第 ${data.batch}/${data.totalBatches} 批，处理 ${data.pagesInBatch} 页`, 'info');
                 });
 
-                printer.on('progress', (data) => {
-                    updateProgress(`📊 总进度: ${data.progress}% (${data.printedPages}/50 页)`, 'info');
+                printer.on('batchComplete', (data) => {
+                    const progress = Math.round((data.batch / data.totalBatches) * 100);
+                    updateProgress(`✅ 第 ${data.batch} 批完成 - 总进度: ${progress}%`, 'success');
                 });
 
-                printer.on('finish', (data) => {
-                    updateProgress(`🎉 大批量打印完成! 共打印 ${data.printedPages} 页`, 'success');
+                const result = await printer.print({
+                    element: container,
+                    totalPages: 50
                 });
 
-                await printer.print({
-                    printElement: container,
-                    totalPages: 50,
-                    batchThreshold: 20,
-                    directPrintCallback: () => {
-                        // 用户自定义的打印逻辑
-                        console.log('执行自定义打印');
-                        window.print();
-                    }
-                });
+                if (result.success) {
+                    updateProgress(`🎉 大批量打印完成! 共打印 ${result.pages} 页`, 'success');
+                }
             } catch (error) {
                 updateProgress(`❌ 大批量打印失败: ${error.message}`, 'error');
             }
