@@ -1,6 +1,6 @@
 {
   "name": "bulk-print-js",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "A solution for batch printing large volumes of pages in web applications, preventing memory overflow by splitting into multiple print tasks.",
   "main": "dist/bulk-print-js.umd.js",
   "module": "dist/bulk-print-js.es.js",
