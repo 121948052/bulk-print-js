@@ -3,7 +3,7 @@
 > 专业的大批量 Web 打印解决方案，解决内存溢出和性能卡顿问题
 
 [![npm version](https://img.shields.io/npm/v/bulk-print-js.svg)](https://www.npmjs.com/package/bulk-print-js)
-[![license](https://img.shields.io/npm/l/bulk-print-js.svg)](https://github.com/yourusername/bulk-print-js/blob/main/LICENSE)
+[![license](https://img.shields.io/npm/l/bulk-print-js.svg)](https://github.com/121948052/bulk-print-js/blob/master/LICENSE)
 [![downloads](https://img.shields.io/npm/dm/bulk-print-js.svg)](https://www.npmjs.com/package/bulk-print-js)
 
 ## 🎯 简介
